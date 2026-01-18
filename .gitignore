@@ -1,0 +1,12 @@
+# python env dirs
+__pycache__/
+*.pyc
+/venv
+/venvs
+/env
+/ENV
+/conda
+
+# OS-specific
+.DS_Store
+Thumbs.db
