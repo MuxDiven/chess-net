@@ -106,7 +106,7 @@ def parse_data_set(df):
 
 if __name__ == "__main__":
     starting_time = time.time()
-    FILE_PATH = "../datasets/raw/games.csv"
+    FILE_PATH = base_dir / "datasets" / "raw" / "games.csv"
     df = pl.read_csv(FILE_PATH, columns=["moves", "winner"])
     df = df.filter(df["winner"].is_in(["white", "black", "draw"]))
 

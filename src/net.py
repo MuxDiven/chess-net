@@ -63,6 +63,7 @@ class ChessNet(nn.Module):
             nn.Linear(32 * 8 * 8, 256),
             nn.ReLU(),
             nn.Linear(256, 1),
+            nn.Tanh(),
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
@@ -80,8 +81,7 @@ class ChessNet(nn.Module):
         x = x.unsqueeze(0)
         policy, value = self(x)
         p_sigma = F.softmax(policy, dim=1)
-        v_sigma = F.tanh(value)
-        return p_sigma, v_sigma
+        return p_sigma, value
 
     def fit(self, train_dataset, epochs=5):
         LAMBDA = 1.0  # loss ofset
