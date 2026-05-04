@@ -26,6 +26,7 @@ def train_test_run(model_name="model", epochs=5):
     test_size = len(dataset) - train_size
     train_ds, test_ds = random_split(dataset, [train_size, test_size])
 
+
     model.fit(train_ds, epochs)
     results = model.evaluate(test_ds)
 
@@ -76,5 +77,6 @@ def test_saved_model(model_name="model"):
 
 
 if __name__ == "__main__":
-    # train_test_run()
-    test_saved_model()
+    EPOCHS = 7 
+    train_test_run(epochs=EPOCHS)
+    # test_saved_model()

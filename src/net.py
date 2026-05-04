@@ -21,9 +21,12 @@ if torch.cuda.is_available():
 class ChessDataset(Dataset):
     def __init__(self, npz_file=PROCESSED_PATH):
         data = np.load(npz_file)
+        print(data.files)
         self.X = torch.from_numpy(data["states"]).float()
         self.yp = torch.from_numpy(data["policy"]).long()
         self.yv = torch.from_numpy(data["values"]).float()
+        print(data['values'][:20])
+        print(data['values'].min(), data['values'].max(), data['values'].mean())
 
     def __len__(self):
         return len(self.X)
@@ -62,11 +65,14 @@ class ChessNet(nn.Module):
             nn.Flatten(),
             nn.Linear(32 * 8 * 8, 256),
             nn.ReLU(),
-            nn.Linear(256, 1),
+            nn.Linear(256, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1),
             nn.Tanh(),
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=3, gamma=0.5)
         self.policy_loss = nn.CrossEntropyLoss()
         self.value_loss = nn.MSELoss()
 
@@ -84,11 +90,12 @@ class ChessNet(nn.Module):
         return p_sigma, value
 
     def fit(self, train_dataset, epochs=5):
-        LAMBDA = 1.0  # loss ofset
+        LAMBDA = 5.0  # loss ofset
         train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
         start = time.time()
         for i in range(epochs):
+            total_loss = 0
             self.train()
             print(f"Starting Epoch {i+1}")
             for X, yp, yv in train_loader:
@@ -103,9 +110,17 @@ class ChessNet(nn.Module):
 
                 p_loss = self.policy_loss(policy_logits, yp)
                 v_loss = self.value_loss(value.squeeze(), yv)
-                loss = p_loss + LAMBDA * v_loss
+
+                # typically lambda = 5
+                loss = p_loss + (LAMBDA * v_loss) 
+                # typically lambda = 1 
+                # loss = (p_loss / p_loss.detach()) + LAMBDA * (v_loss / v_loss.detach())
                 loss.backward()
+                total_loss += loss.item()
                 self.optimizer.step()
+            print(f"Epoch {i+1} loss: {total_loss / len(train_loader):.4f}")
+            self.scheduler.step()
+            print(f"lr: {self.scheduler.get_last_lr()[0]:.6f}")
 
         print(f"training took: {start - time.time()}")
 
@@ -142,9 +157,9 @@ class ChessNet(nn.Module):
                 )
 
                 v_mse_sum += F.mse_loss(value_pred, yv, reduction="sum").item()
-
+                
                 v_sign_correct += (
-                    (torch.sign(value_pred) == torch.sign(yv)).sum().item()
+                    ((value_pred > 0) == (yv > 0)).sum().item()
                 )
 
                 total += yp.size(0)

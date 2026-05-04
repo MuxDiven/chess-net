@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+import math
 
 import chess
 import numpy as np
@@ -24,6 +25,14 @@ PIECE_TO_PLANE = {
     "k": 11,
 }
 
+PIECE_VALUES = {
+    chess.PAWN: 100,
+    chess.KNIGHT: 320,
+    chess.BISHOP: 330,
+    chess.ROOK: 500,
+    chess.QUEEN: 900,
+}
+
 base_dir = Path(__file__).parent.parent  # folder where this script lives
 output_path = base_dir / "datasets" / "processed" / "chess_dataset.npz"
 # Make sure directories exist
@@ -33,6 +42,14 @@ VALUE_LABEL = {"white": 1, "draw": 0, "black": -1}
 
 INPUT_SHAPE = (C, 8, 8)
 
+def value_eval(board,result,alpha=0.5,base=400):
+    score = 0
+
+    for piece_type, value in PIECE_VALUES.items():
+        score += len(board.pieces(piece_type,chess.WHITE)) * value
+        score -= len(board.pieces(piece_type,chess.BLACK)) * value
+    mat = math.tanh(score / 400)
+    return alpha * mat + (1 - alpha) * result
 
 def vectorise(fen):
     board, to_move = fen.split()[:2]
@@ -72,15 +89,16 @@ def parse_data_set(df):
         moves = row["moves"].split(" ")
         n_moves = len(moves)
         dataset_len += n_moves
-        values += [VALUE_LABEL[row["winner"]] for _ in range(n_moves)]
 
         # vectorise state walk
         board = chess.Board()
         for move in moves:
-            fen = board.fen()
             san_mv = board.parse_san(move)
+            board.push(san_mv)
+            fen = board.fen()
             index = encoder.encode_az_4672(san_mv)
             policy.append(index)
+            values.append(value_eval(board,VALUE_LABEL[row["winner"]]))
 
             if fen in t_table:
                 states.append(t_table[fen])
@@ -89,10 +107,9 @@ def parse_data_set(df):
                 t_table[fen] = tensor
                 states.append(tensor)
 
-            board.push(san_mv)
 
     states = np.stack(states)
-    policy = np.array(policy, dtype=np.int64)
+    policy = np.array(policy, dtype=np.float32)
     values = np.array(values, dtype=np.float32)
 
     print("writing to .npz")
