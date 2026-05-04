@@ -12,7 +12,7 @@ base_dir = Path(__file__).parent.parent
 PROCESSED_PATH = base_dir / "datasets" / "processed" / "chess_dataset.npz"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-print("CUDA available:", torch.cuda.is_available())  # should be True
+print("CUDA available:", torch.cuda.is_available())
 if torch.cuda.is_available():
     print("CUDA version:", torch.version.cuda)
     print("GPU name:", torch.cuda.get_device_name(0))
